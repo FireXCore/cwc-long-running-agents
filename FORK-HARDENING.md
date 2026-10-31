@@ -15,8 +15,14 @@ upstream LICENSE and attribution. **Not a security boundary.**
 - Stop auto-commit is disabled by default. No Stop hook is registered.
 
 - PreToolUse command hooks now specify `onFailure: "block"` (requires
-  Claude Code 2.1.295+). A missing Git Bash, crashing command, invalid output,
-  or timeout blocks the tool call rather than silently allowing it.
+  Claude Code 2.1.295+). A crashing command, invalid output, or timeout
+  blocks the tool call rather than silently allowing it.
+- Every hook also pins `"shell": "bash"`. Without it, Windows Claude Code
+  with no Git Bash runs the `.sh` command through PowerShell, which exits 0
+  with no JSON, so `onFailure` never triggers and every tool call is allowed
+  (reproduced live on 2.1.312). With `shell: bash` the hook fails to start and
+  `onFailure: "block"` blocks the call. Without Git Bash all tools are then
+  blocked: fail closed, not usable.
   This is still NOT a security boundary; Bash can bypass Write/Edit events.
 
 ## Windows: verified launcher required for safe startup
@@ -36,7 +42,16 @@ upstream LICENSE and attribution. **Not a security boundary.**
   authenticity, tamper-proofing, or authorization boundary.
 - A trusted *external* evaluator must inspect actual browser/API results
   and determine PASS/FAIL outside the builder's writable workspace.
-- Live Windows retesting of this revision is pending. CI uses mock events.
+- Live Windows acceptance was run on one host (Windows 10 19045, Claude Code
+  2.1.312, Windows PowerShell 5.1, Git for Windows outside Program Files);
+  see PR #1. CI uses mock events only. `shell: bash` failing closed without
+  Git Bash was verified on 2.1.312. The docs give no minimum version for
+  `shell`, so older builds are unverified.
+- Windows PowerShell 5.1 strips embedded double quotes from arguments the
+  launcher forwards to `claude`. Pass prompts on stdin, not as arguments.
+- With the results file absent, Win32 aliases (trailing dot/space, `\\?\`,
+  `::$DATA`) are now gated. Other spellings that only the OS resolves (for
+  example admin shares) are caught only once the file exists.
 - Do not deploy these examples as security isolation for RMS or tenants.
 
 ## Tests

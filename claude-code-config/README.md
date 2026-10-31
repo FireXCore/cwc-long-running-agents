@@ -7,7 +7,9 @@ Requires Git Bash and real Python 3.9+ with sqlite3. On Windows the Store
 'python3' stub is insufficient. Use the repository's
 scripts/launch-claude-verified.ps1 after copying .claude into a disposable
 project root. The launcher checks prerequisites and sets environment values
-before calling Claude Code. Launching raw claude can silently skip hooks.
+before calling Claude Code. Every hook pins `"shell": "bash"`, so raw
+`claude` without Git Bash blocks every tool call instead of silently
+skipping the hooks. Do not remove that field.
 
 Hooks:
 - kill-switch.sh: block tools while AGENT_STOP exists (when hooks run)

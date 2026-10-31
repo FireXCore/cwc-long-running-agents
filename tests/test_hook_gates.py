@@ -151,5 +151,35 @@ class HookGateTests(unittest.TestCase):
         self.assertIsNone(self.hook("verify-gate.sh", session="first"))
         self.assertIsNone(self.hook("verify-gate.sh", session="second"))
 
+    def test_store_python_stub_fails_closed(self):
+        stub = self.root / "fake-python"
+        stub.write_text("#!/bin/sh\nexit 0\n")
+        stub.chmod(0o755)
+        env = {**self.env, "CWC_PYTHON_BIN": str(stub)}
+        self.denied(self.hook("verify-gate.sh", env=env))
+        note = self.root / "STEER.md"
+        note.write_text("operator message")
+        self.denied(self.hook("steer.sh", env=env))
+        self.assertEqual(note.read_text(), "operator message")
+
+    def test_self_minted_evidence_is_still_untrusted(self):
+        # KNOWN LIMITATION: shows this is an advisory gate, not certification.
+        file = self.root / "evidence" / "self-console.txt"
+        file.write_text("invented PASS")
+        self.read(path=file)
+        self.assertIsNone(self.hook("verify-gate.sh"))
+
+    def test_forged_sqlite_entry_is_still_untrusted(self):
+        # KNOWN LIMITATION: local agent can edit SQLite directly.
+        import hashlib
+        import time
+        self.read()  # initialize database
+        with sqlite3.connect(self.db) as db:
+            db.execute("DELETE FROM reads")
+            db.execute("INSERT INTO reads(session,path,sha,observed) VALUES(?,?,?,?)",
+                       ("first", str(self.proof),
+                        hashlib.sha256(self.proof.read_bytes()).hexdigest(), time.time()))
+        self.assertIsNone(self.hook("verify-gate.sh"))
+
 if __name__ == "__main__":
     unittest.main()

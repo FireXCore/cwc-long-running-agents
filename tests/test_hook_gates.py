@@ -67,6 +67,13 @@ class HookGateTests(unittest.TestCase):
         self.assertTrue(any(x.get("matcher") == "Read" for x in hooks["PostToolUse"]))
         self.assertNotIn("Stop", hooks)
 
+    def test_critical_pretool_hooks_fail_closed(self):
+        hooks = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+        critical = [hook for group in hooks for hook in group["hooks"]]
+        self.assertEqual(len(critical), 3)
+        self.assertTrue(all(hook.get("onFailure") == "block"
+                            for hook in critical))
+
     def test_no_evidence_denied(self):
         self.denied(self.hook("verify-gate.sh"))
 

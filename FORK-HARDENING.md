@@ -14,6 +14,11 @@ upstream LICENSE and attribution. **Not a security boundary.**
 - Steering notes are not removed when the Python runtime is unavailable.
 - Stop auto-commit is disabled by default. No Stop hook is registered.
 
+- PreToolUse command hooks now specify `onFailure: "block"` (requires
+  Claude Code 2.1.295+). A missing Git Bash, crashing command, invalid output,
+  or timeout blocks the tool call rather than silently allowing it.
+  This is still NOT a security boundary; Bash can bypass Write/Edit events.
+
 ## Windows: verified launcher required for safe startup
 1. Copy claude-code-config/.claude to a *disposable project* root.
 2. Open PowerShell in that project root.

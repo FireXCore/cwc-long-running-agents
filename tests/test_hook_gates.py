@@ -4,6 +4,7 @@ from contextlib import closing
 import json
 import os
 from pathlib import Path
+import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -12,6 +13,18 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 HOOKS = ROOT / "claude-code-config" / ".claude" / "hooks"
 SETTINGS = ROOT / "claude-code-config" / ".claude" / "settings.json"
+LAUNCHER = ROOT / "scripts" / "launch-claude-verified.ps1"
+
+def git_bash():
+    """Git Bash on Windows; 'bash' on PATH may resolve to WSL's stub."""
+    if os.environ.get("CWC_TEST_GIT_BASH"):
+        return os.environ["CWC_TEST_GIT_BASH"]
+    git = shutil.which("git")
+    if git:  # install root above cmd\git.exe or mingw64\bin\git.exe
+        for parent in list(Path(git).resolve().parents)[:3]:  # 3.9: no slicing
+            if (parent / "bin" / "bash.exe").is_file():
+                return str(parent / "bin" / "bash.exe")
+    return r"C:\Program Files\Git\bin\bash.exe"
 
 class HookGateTests(unittest.TestCase):
     def setUp(self):
@@ -36,11 +49,8 @@ class HookGateTests(unittest.TestCase):
                "tool_input": {"file_path": str(path or self.results)}}
         environment = dict(env or self.env)
         if os.name == "nt":
-            # Explicit Git Bash: 'bash' on PATH may resolve to WSL's stub.
-            bash = os.environ.get("CWC_TEST_GIT_BASH",
-                                  r"C:\Program Files\Git\bin\bash.exe")
             environment["CWC_HOOK_SCRIPT"] = str(HOOKS / script)
-            command = [bash, "-c",
+            command = [git_bash(), "-c",
                        'exec bash "$(cygpath -u "$CWC_HOOK_SCRIPT")"']
         else:
             command = ["bash", str(HOOKS / script)]
@@ -73,6 +83,69 @@ class HookGateTests(unittest.TestCase):
         self.assertEqual(len(critical), 3)
         self.assertTrue(all(hook.get("onFailure") == "block"
                             for hook in critical))
+
+    def test_hooks_pin_bash_shell(self):
+        # Without Git Bash, Windows Claude Code otherwise runs .sh commands via
+        # PowerShell, which exits 0 without output and allows the tool call
+        # even with onFailure=block. shell=bash makes the hook fail to start.
+        hooks = json.loads(SETTINGS.read_text())["hooks"]
+        every = [h for groups in hooks.values() for g in groups for h in g["hooks"]]
+        self.assertTrue(every)
+        self.assertTrue(all(h.get("shell") == "bash" for h in every))
+
+    def launcher(self, version="2.1.312 (Claude Code)", settings=None, args=()):
+        fake = self.root / "fakebin"
+        fake.mkdir(exist_ok=True)
+        shown =version.replace("(", "^(").replace(")", "^)")  # cmd block syntax
+        (fake / "claude.cmd").write_text(
+            f'@if "%1"=="--version" (echo {shown}) else (echo ARGS: %*)\r\n')
+        if settings != "absent":
+            (self.root / ".claude" / "settings.json").write_text(
+                settings if settings is not None else SETTINGS.read_text())
+        env = {**os.environ, "PATH": str(fake) + os.pathsep + os.environ["PATH"]}
+        env.pop("CLAUDE_CODE_GIT_BASH_PATH", None)
+        # Windows PowerShell 5.1, the default shell, not pwsh.
+        return subprocess.run(
+            ["powershell.exe", "-NoProfile", "-File", str(LAUNCHER), *args],
+            capture_output=True, text=True,
+            env=env, cwd=self.root, timeout=120)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_preflight_passes_on_powershell_51(self):
+        proc = self.launcher()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("CWC preflight PASS", proc.stdout)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_forwards_claude_flags(self):
+        flags = ["-p", "--model", "sonnet", "--verbose", "--debug", "hooks"]
+        proc = self.launcher(args=flags)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("ARGS: " + " ".join(flags), proc.stdout)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_refuses_old_claude_with_exit_2(self):
+        proc = self.launcher(version="2.1.200 (Claude Code)")
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("2.1.295+", proc.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_refuses_without_settings(self):
+        proc = self.launcher(settings="absent")
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_refuses_unguarded_settings(self):
+        unpinned = SETTINGS.read_text().replace('"shell": "bash",', "")
+        for text in ("{}", unpinned):
+            with self.subTest(settings=text[:20]):
+                proc = self.launcher(settings=text)
+                self.assertEqual(proc.returncode, 2, proc.stderr)
+        (self.root / ".claude" / "settings.local.json").write_text(
+            '{"disableAllHooks": true}')
+        proc = self.launcher()
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("disableAllHooks", proc.stderr)
 
     def test_no_evidence_denied(self):
         self.denied(self.hook("verify-gate.sh"))
@@ -121,6 +194,16 @@ class HookGateTests(unittest.TestCase):
         os.link(self.results, alias)
         self.denied(self.hook("verify-gate.sh", path=alias))
 
+    @unittest.skipUnless(os.name == "nt", "Win32 path aliases")
+    def test_win32_aliases_before_results_exist(self):
+        # samefile() cannot help while the results file does not exist yet.
+        self.results.unlink()
+        name = str(self.results)
+        for alias in (name + ".", name + " ", name + ". ", "\\\\?\\" + name,
+                      "\\\\.\\" + name, name + "::$DATA", name.upper()):
+            with self.subTest(alias=alias):
+                self.denied(self.hook("verify-gate.sh", path=alias))
+
     def test_ttl_expired(self):
         self.read()
         with closing(sqlite3.connect(self.db)) as db, db:
@@ -150,7 +233,10 @@ class HookGateTests(unittest.TestCase):
     def test_operator_steering_schema(self):
         note = self.root / "STEER.md"
         note.write_text('halt "now"')
-        self.denied(self.hook("steer.sh"))
+        verdict = self.hook("steer.sh")
+        self.denied(verdict)
+        reason = verdict["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn('halt "now"\n\nPause', reason)  # real newlines, not "\\n"
         self.assertEqual(note.read_text(), "")
 
     def test_no_stop_autocommit(self):

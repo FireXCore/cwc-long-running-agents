@@ -35,9 +35,11 @@ class HookGateTests(unittest.TestCase):
                "tool_input": {"file_path": str(path or self.results)}}
         environment = dict(env or self.env)
         if os.name == "nt":
-            # Git Bash cannot open Windows backslash paths as script arguments.
+            # Explicit Git Bash: 'bash' on PATH may resolve to WSL's stub.
+            bash = os.environ.get("CWC_TEST_GIT_BASH",
+                                  r"C:\Program Files\Git\bin\bash.exe")
             environment["CWC_HOOK_SCRIPT"] = str(HOOKS / script)
-            command = ["bash", "-c",
+            command = [bash, "-c",
                        'exec bash "$(cygpath -u "$CWC_HOOK_SCRIPT")"']
         else:
             command = ["bash", str(HOOKS / script)]

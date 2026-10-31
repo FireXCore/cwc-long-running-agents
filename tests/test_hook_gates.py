@@ -142,7 +142,7 @@ class HookGateTests(unittest.TestCase):
                 proc = self.launcher(settings=text)
                 self.assertEqual(proc.returncode, 2, proc.stderr)
         (self.root / ".claude" / "settings.local.json").write_text(
-            '{"disableAllHooks": true}')
+            '{"disable\\u0041llHooks": true}')  # JSON-escaped "A"
         proc = self.launcher()
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("disableAllHooks", proc.stderr)

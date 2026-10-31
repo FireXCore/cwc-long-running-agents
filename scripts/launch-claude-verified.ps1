@@ -23,9 +23,11 @@ if ($pre.Count -eq 0 -or ($pre | Where-Object { $_.onFailure -ne 'block' }) -or
   Fail 'Hooks must set shell=bash, and PreToolUse hooks onFailure=block.'
 }
 foreach ($file in @('.claude/settings.json', '.claude/settings.local.json')) {
-  if ((Test-Path -LiteralPath $file) -and (Get-Content -Raw -LiteralPath $file) -match '"disableAllHooks"\s*:\s*true') {
-    Fail "$file sets disableAllHooks."
-  }
+  if (-not (Test-Path -LiteralPath $file)) { continue }
+  # Parsed, so JSON-escaped key spellings are caught too.
+  try { $parsed = Get-Content -Raw -LiteralPath $file | ConvertFrom-Json }
+  catch { Fail "$file is not valid JSON." }
+  if ($parsed.disableAllHooks -eq $true) { Fail "$file sets disableAllHooks." }
 }
 $candidates = @()
 if ($env:CLAUDE_CODE_GIT_BASH_PATH) { $candidates += $env:CLAUDE_CODE_GIT_BASH_PATH }

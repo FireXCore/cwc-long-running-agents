@@ -1,27 +1,26 @@
 name: Hook contract tests
-
 on:
   push:
-    branches:
-      - fix/evidence-gates-hardening
+    branches: [fix/evidence-gates-hardening]
   pull_request:
-    branches:
-      - main
-
+    branches: [main]
 permissions:
   contents: read
-
 jobs:
   hook-tests:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Check shell syntax
+      - name: Shell syntax
+        shell: bash
         run: bash -n claude-code-config/.claude/hooks/*.sh
-      - name: Run hook regression tests
-        run: python3 -m unittest discover -s tests -v
+      - name: Hook regression suite
+        shell: bash
+        run: python -m unittest discover -s tests -v

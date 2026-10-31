@@ -33,10 +33,19 @@ class HookGateTests(unittest.TestCase):
         obj = {"tool_name": tool, "hook_event_name": event,
                "cwd": str(self.root), "session_id": session,
                "tool_input": {"file_path": str(path or self.results)}}
-        proc = subprocess.run(["bash", str(HOOKS / script)],
-            input=json.dumps(obj) if payload is None else payload,
-            text=True, capture_output=True, env=env or self.env,
-            cwd=self.root, check=True)
+        environment = dict(env or self.env)
+        if os.name == "nt":
+            # Git Bash cannot open Windows backslash paths as script arguments.
+            environment["CWC_HOOK_SCRIPT"] = str(HOOKS / script)
+            command = ["bash", "-c",
+                       'exec bash "$(cygpath -u "$CWC_HOOK_SCRIPT")"']
+        else:
+            command = ["bash", str(HOOKS / script)]
+        proc = subprocess.run(
+            command, input=json.dumps(obj) if payload is None else payload,
+            text=True, capture_output=True, env=environment, cwd=self.root)
+        self.assertEqual(proc.returncode, 0,
+                         f"Hook failed: {proc.stderr!r} {proc.stdout!r}")
         return json.loads(proc.stdout) if proc.stdout.strip() else None
 
     def read(self, session="first", path=None, event="PostToolUse"):

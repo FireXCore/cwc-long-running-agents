@@ -1,170 +1,152 @@
 #!/usr/bin/env python3
 # Copyright 2026 FireXCore contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Best-effort, session-scoped evidence audit. NOT a security boundary.
-
-Only a separate trusted evaluator/CI may certify results. An agent with
-shell access can forge this log, skip the hook, or edit results via Bash.
-"""
+"""Advisory evidence gate only. Agent-owned files and Bash bypass it."""
 import hashlib
 import json
 import os
 from pathlib import Path
+import sqlite3
 import sys
-import tempfile
+import time
 
-
-def _payload():
+def input_event():
     try:
-        value = json.load(sys.stdin)
-        return value if isinstance(value, dict) else None
-    except (TypeError, ValueError):
+        e = json.load(sys.stdin)
+        return e if isinstance(e, dict) else None
+    except (ValueError, TypeError):
         return None
 
+def deny(msg):
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse", "permissionDecision": "deny",
+        "permissionDecisionReason": msg}}))
 
-def _root(event):
-    cwd = event.get("cwd")
-    if cwd is not None and not isinstance(cwd, str):
+def root(e):
+    value = e.get("cwd")
+    if value is not None and not isinstance(value, str):
         raise ValueError("invalid cwd")
-    return Path(cwd or os.getcwd()).resolve()
+    return Path(value or os.getcwd()).resolve()
 
-
-def _path(value, cwd):
+def resolve(value, cwd):
     if not isinstance(value, str) or not value:
         return None
     try:
-        candidate = Path(value)
-        return (candidate if candidate.is_absolute() else cwd / candidate).resolve()
-    except (OSError, RuntimeError, ValueError):
+        p = Path(value)
+        return (p if p.is_absolute() else cwd / p).resolve()
+    except (ValueError, OSError, RuntimeError):
         return None
 
+def is_evidence(path, cwd):
+    if path is None or not path.is_file():
+        return False
+    if not any(path != d and d in path.parents
+               for d in ((cwd / "screenshots").resolve(),
+                         (cwd / "evidence").resolve())):
+        return False
+    return path.suffix.lower() == ".png" or path.name.endswith(("-console.txt", "-result.txt"))
 
-def _log(cwd):
-    return _path(os.environ.get("VERIFY_READ_LOG", ".claude/.evidence-reads"), cwd)
-
-
-def _evidence(path):
-    name = path.name
-    return "/screenshots/" in path.as_posix().replace("\\", "/") or name.endswith(
-        ("-console.txt", "-result.txt", ".png")
-    )
-
-
-def _digest(path):
+def sha256(path):
     h = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            h.update(block)
+    with path.open("rb") as f:
+        for part in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(part)
     return h.hexdigest()
 
+def ttl():
+    value = int(os.environ.get("CWC_EVIDENCE_TTL_SECONDS", "900"))
+    if not 1 <= value <= 86400:
+        raise ValueError("invalid TTL")
+    return value
 
-def _deny(reason):
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "deny",
-        "permissionDecisionReason": reason,
-    }}))
+def db(cwd):
+    name = resolve(os.environ.get("CWC_AUDIT_DB",
+                                 ".claude/.evidence-reads.sqlite3"), cwd)
+    name.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(name, timeout=15, isolation_level=None)
+    c.execute("PRAGMA busy_timeout=15000")
+    c.execute("""CREATE TABLE IF NOT EXISTS reads (
+        id INTEGER PRIMARY KEY, session TEXT NOT NULL, path TEXT NOT NULL,
+        sha TEXT NOT NULL, observed REAL NOT NULL)""")
+    return c
 
-
-def _record(event):
-    if (not event or event.get("hook_event_name") != "PostToolUse"
-            or event.get("tool_name") != "Read"):
+def record(e):
+    if not e or e.get("hook_event_name") != "PostToolUse" or e.get("tool_name") != "Read":
         return
-    payload = event.get("tool_input")
-    if not isinstance(payload, dict):
-        return
-    cwd = _root(event)
-    path = _path(payload.get("file_path"), cwd)
-    session = event.get("session_id")
-    if not isinstance(session, str) or not session or not path or not _evidence(path):
-        return
-    if not path.is_file():
-        return
-    try:
-        row = {"session": session, "path": str(path), "sha256": _digest(path)}
-        log = _log(cwd)
-        log.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(str(log), os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
-        try:
-            os.write(fd, (json.dumps(row, separators=(",", ":")) + "\n").encode())
-        finally:
-            os.close(fd)
-    except OSError:
-        return  # Absence of evidence denies the next guarded write.
-
-
-def _entries(log):
-    if not log.is_file():
-        return []
-    rows = []
-    for line in log.read_text(encoding="utf-8").splitlines():
-        row = json.loads(line)
-        if not isinstance(row, dict) or not all(
-                isinstance(row.get(key), str) and row[key]
-                for key in ("session", "path", "sha256")):
-            raise ValueError("invalid evidence record")
-        rows.append(row)
-    return rows
-
-
-def _save(log, rows):
-    log.parent.mkdir(parents=True, exist_ok=True)
-    temp = None
-    try:
-        with tempfile.NamedTemporaryFile(
-                "w", encoding="utf-8", dir=log.parent,
-                prefix=".evidence-", delete=False) as stream:
-            temp = Path(stream.name)
-            for row in rows:
-                stream.write(json.dumps(row, separators=(",", ":")) + "\n")
-        os.replace(temp, log)
-    finally:
-        if temp and temp.exists():
-            temp.unlink()
-
-
-def _check(event):
-    if (not event or event.get("hook_event_name") != "PreToolUse"
-            or event.get("tool_name") not in ("Write", "Edit")
-            or not isinstance(event.get("tool_input"), dict)):
-        _deny("Malformed results-edit hook event")
-        return
-    cwd = _root(event)
-    target = _path(event["tool_input"].get("file_path"), cwd)
-    results = _path(os.environ.get("RESULTS_FILE", "test-results.json"), cwd)
-    if target is None or results is None:
-        _deny("Missing results-edit file path")
-        return
-    if target != results:
-        return
-    session = event.get("session_id")
-    if not isinstance(session, str) or not session:
-        _deny("Missing session identifier")
+    obj = e.get("tool_input")
+    session = e.get("session_id")
+    if not isinstance(obj, dict) or not isinstance(session, str) or not session:
         return
     try:
-        log = _log(cwd)
-        rows = _entries(log)
-        valid = any(
-            row["session"] == session
-            and (p := _path(row["path"], cwd)) is not None
-            and p.is_file() and _evidence(p)
-            and _digest(p) == row["sha256"]
-            for row in rows
-        )
-        if not valid:
-            _deny("No fresh, unchanged evidence read in this session")
+        cwd = root(e)
+        path = resolve(obj.get("file_path"), cwd)
+        if not is_evidence(path, cwd):
             return
-        _save(log, [row for row in rows if row["session"] != session])
-    except (OSError, ValueError, TypeError):
-        _deny("Evidence audit log missing, corrupt, or unwritable")
+        digest = sha256(path)
+        c = db(cwd)
+        try:
+            c.execute("BEGIN IMMEDIATE")
+            c.execute("INSERT INTO reads(session,path,sha,observed) VALUES(?,?,?,?)",
+                      (session, str(path), digest, time.time()))
+            c.commit()
+        finally:
+            c.close()
+    except (OSError, ValueError, sqlite3.Error):
+        pass
 
+def same_file(a, b):
+    if a == b:
+        return True
+    try:
+        return a.is_file() and b.is_file() and os.path.samefile(a, b)
+    except OSError:
+        return False
+
+def check(e):
+    if not e or e.get("hook_event_name") != "PreToolUse" or \
+       e.get("tool_name") not in ("Write", "Edit") or \
+       not isinstance(e.get("tool_input"), dict):
+        deny("Malformed hook event")
+        return
+    try:
+        cwd = root(e)
+        target = resolve(e["tool_input"].get("file_path"), cwd)
+        result = resolve(os.environ.get("RESULTS_FILE", "test-results.json"), cwd)
+        if target is None or result is None:
+            deny("Missing file path")
+            return
+        if not same_file(target, result):
+            return
+        session = e.get("session_id")
+        if not isinstance(session, str) or not session:
+            deny("Missing session")
+            return
+        now = time.time()
+        lifetime = ttl()
+        c = db(cwd)
+        try:
+            c.execute("BEGIN IMMEDIATE")
+            rows = c.execute("SELECT path,sha,observed FROM reads WHERE session=?",
+                             (session,)).fetchall()
+            valid = any(0 <= now - stamp <= lifetime and
+                        is_evidence(p := resolve(name, cwd), cwd) and
+                        sha256(p) == digest for name, digest, stamp in rows)
+            if valid:
+                c.execute("DELETE FROM reads WHERE session=?", (session,))
+                c.commit()
+                return
+            c.rollback()
+        finally:
+            c.close()
+        deny("No fresh unchanged evidence in this session")
+    except (OSError, ValueError, TypeError, sqlite3.Error):
+        deny("Evidence audit failed")
 
 if __name__ == "__main__":
-    action = sys.argv[1] if len(sys.argv) == 2 else ""
-    data = _payload()
-    if action == "record":
-        _record(data)
-    elif action == "check":
-        _check(data)
+    mode = sys.argv[1] if len(sys.argv) == 2 else ""
+    if mode == "record":
+        record(input_event())
+    elif mode == "check":
+        check(input_event())
     else:
         sys.exit(2)

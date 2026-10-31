@@ -9,6 +9,9 @@
 #
 # Fails silently if commit can't be made (no git user.name, hook rejects, etc);
 # check `git log` periodically when relying on this as a backstop.
+if [ "${CWC_AUTO_COMMIT_ON_STOP:-0}" != "1" ]; then
+  exit 0
+fi
 if git rev-parse --git-dir >/dev/null 2>&1; then
   if ! git diff --quiet || ! git diff --cached --quiet; then
     git commit -am "session checkpoint: $(date '+%Y-%m-%d %H:%M')" >/dev/null 2>&1

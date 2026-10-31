@@ -1,0 +1,2 @@
+# Hook scripts must stay LF even with core.autocrlf=true (WSL/Linux bash rejects CR).
+*.sh text eol=lf

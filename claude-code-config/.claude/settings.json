@@ -4,27 +4,41 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": ".claude/hooks/kill-switch.sh" },
-          { "type": "command", "command": ".claude/hooks/steer.sh" }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          { "type": "command", "command": ".claude/hooks/track-read.sh" }
+          {
+            "type": "command",
+            "command": ".claude/hooks/kill-switch.sh",
+            "shell": "bash",
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/steer.sh",
+            "shell": "bash",
+            "onFailure": "block"
+          }
         ]
       },
       {
         "matcher": "Write|Edit",
         "hooks": [
-          { "type": "command", "command": ".claude/hooks/verify-gate.sh" }
+          {
+            "type": "command",
+            "command": ".claude/hooks/verify-gate.sh",
+            "shell": "bash",
+            "onFailure": "block"
+          }
         ]
       }
     ],
-    "Stop": [
+    "PostToolUse": [
       {
+        "matcher": "Read",
         "hooks": [
-          { "type": "command", "command": ".claude/hooks/commit-on-stop.sh" }
+          {
+            "type": "command",
+            "command": ".claude/hooks/track-read.sh",
+            "shell": "bash"
+          }
         ]
       }
     ]

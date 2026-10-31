@@ -1,27 +1,27 @@
 <!-- Copyright 2026 Anthropic PBC -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Long-running conventions for this project
+# Long-running project conventions (fork)
 
-## Always start here
-Before doing anything else, read `PROGRESS.md`. It is your handoff note from the previous session. If it doesn't exist yet, create it now with four sections (`## Done`, `## In progress`, `## Next`, `## Notes`) and leave them empty. Then run `git log --oneline -10` to see what was just committed, and run the project's smoke test (or `npm run build` / `npm test`) once so you know you're starting from a working tree, not a broken handoff.
+## Start
+Read PROGRESS.md when present. Inspect recent commits and smoke-test existing
+functionality before editing. Do not create/overwrite files without authorization.
 
-## One feature at a time
-Work on exactly one item from `PROGRESS.md` per session. Finish it (tests passing, screenshot verified) before starting another. If the user gives you a new task mid-session, add it to `PROGRESS.md` and finish the current item first.
+## Scope
+Work on one feature at a time; reuse existing code and preserve approved behavior.
 
-## Proof before passing
-A test is only "passing" after you have:
-1. Run it against the live app (Playwright screenshot or equivalent)
-2. Opened the resulting screenshot or console log with the Read tool
-3. Confirmed it shows what it should
+## Proof and verification
+Run real app/API/browser checks and inspect evidence. Local evidence hooks are
+ADVISORY only. The builder cannot certify PASS; use an independent trusted
+evaluator for a final verdict. Do not call a mocked test a real integration test.
 
-The `verify-gate` hook will deny writes to `test-results.json` until you have opened evidence. Do not try to work around it.
+## Handoff
+Keep PROGRESS.md current with IMPLEMENTED, TESTED, VERIFIED and PENDING.
 
-## Keep `PROGRESS.md` current
-After each completed item, update `PROGRESS.md`: check off what's done, add what you learned, note what's next. Future sessions read this file cold.
+## Commits
+No Stop auto-commit hook is registered. Commit, push, merge and publish only
+when explicitly authorized for the task.
 
-## Commit often
-The `Stop` hook commits tracked changes at session end, but also `git add` new files and commit yourself at meaningful checkpoints with descriptive messages.
-
-## If you're told to stop
-`OPERATOR STEERING:` messages come from a human via the steer hook. Treat them as higher priority than your current plan.
+## Operator controls
+Honor AGENT_STOP and STEER.md, but recognize they are not a security boundary.
+On Windows use the checked launcher described in FORK-HARDENING.md.

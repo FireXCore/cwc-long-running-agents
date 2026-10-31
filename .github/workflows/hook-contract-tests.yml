@@ -1,0 +1,36 @@
+name: Hook contract tests
+on:
+  push:
+    branches: [fix/evidence-gates-hardening]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  hook-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Shell syntax
+        shell: bash
+        run: bash -n claude-code-config/.claude/hooks/*.sh
+      - name: Parse Windows PowerShell launcher
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts/launch-claude-verified.ps1').Path,
+            [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) { $parseErrors | Out-String | Write-Error; exit 1 }
+      - name: Hook regression suite
+        shell: bash
+        run: python -m unittest discover -s tests -v

@@ -38,6 +38,14 @@ $probe = & $bash -lc '"$CWC_PYTHON_BIN" -c "import sys; print(sys.version_info.m
 if ($LASTEXITCODE -ne 0 -or "$probe" -ne '3') { Fail 'Selected Python does not run under Git Bash.' }
 $claude = Get-Command claude -ErrorAction SilentlyContinue
 if (-not $claude) { Fail 'Claude Code executable not found.' }
+$versionOutput = & $claude.Source --version 2>$null
+if ("$versionOutput" -notmatch '(\d+)\.(\d+)\.(\d+)') {
+  Fail 'Unable to parse Claude Code version for onFailure:block support.'
+}
+$detectedVersion = [Version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+if ($detectedVersion -lt [Version]'2.1.295') {
+  Fail 'Claude Code 2.1.295+ is required for fail-closed onFailure:block hook handling.'
+}
 Write-Host 'CWC preflight PASS. Hooks are advisory and can be bypassed with Bash.'
 & $claude.Source @ClaudeArgs
 exit $LASTEXITCODE

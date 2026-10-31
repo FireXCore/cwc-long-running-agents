@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Copyright 2026 Anthropic PBC
 # SPDX-License-Identifier: Apache-2.0
-# Record evidence after successful Read, scoped by Claude session and file digest.
-# Teaching aid only; an agent with shell access can bypass local hooks.
-python3 "$(dirname "$0")/evidence_audit.py" record
+# Records only successful PostToolUse(Read) evidence.
+source "$(dirname "$0")/python-bin.sh"
+if cwc_select_python; then
+  "$CWC_SELECTED_PYTHON" "$(dirname "$0")/evidence_audit.py" record
+fi

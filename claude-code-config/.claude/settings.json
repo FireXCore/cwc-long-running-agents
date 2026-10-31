@@ -6,11 +6,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/kill-switch.sh"
+            "command": ".claude/hooks/kill-switch.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",
-            "command": ".claude/hooks/steer.sh"
+            "command": ".claude/hooks/steer.sh",
+            "onFailure": "block"
           }
         ]
       },
@@ -19,7 +21,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/verify-gate.sh"
+            "command": ".claude/hooks/verify-gate.sh",
+            "onFailure": "block"
           }
         ]
       }

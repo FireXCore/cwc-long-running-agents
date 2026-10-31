@@ -1,5 +1,6 @@
 """Mock hook contracts (not live Claude Code or trusted provenance tests)."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -115,7 +116,7 @@ class HookGateTests(unittest.TestCase):
 
     def test_ttl_expired(self):
         self.read()
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.execute("UPDATE reads SET observed=1")
         self.denied(self.hook("verify-gate.sh"))
 
@@ -185,7 +186,7 @@ class HookGateTests(unittest.TestCase):
         import hashlib
         import time
         self.read()  # initialize database
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.execute("DELETE FROM reads")
             db.execute("INSERT INTO reads(session,path,sha,observed) VALUES(?,?,?,?)",
                        ("first", str(self.proof),

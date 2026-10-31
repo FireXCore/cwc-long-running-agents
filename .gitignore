@@ -5,3 +5,8 @@ STEER.md
 PROGRESS.md
 test-results.json
 screenshots/
+
+# Fork: SQLite evidence is ephemeral and may contain local paths.
+.claude/.evidence-reads.sqlite3*
+**/.claude/.evidence-reads.sqlite3*
+evidence/

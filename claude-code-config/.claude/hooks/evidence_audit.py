@@ -94,8 +94,20 @@ def record(e):
     except (OSError, ValueError, sqlite3.Error):
         pass
 
+def win_key(p):
+    # Win32 names that open the same file even before it exists: \\?\ and \\.\
+    # prefixes, a ::$DATA stream suffix, trailing dots/spaces (abspath strips).
+    s = str(p)
+    if s.startswith("\\\\?\\UNC\\"):
+        s = "\\\\" + s[8:]
+    elif s.startswith(("\\\\?\\", "\\\\.\\")):
+        s = s[4:]
+    if s.lower().endswith("::$data"):
+        s = s[:-7]
+    return os.path.normcase(os.path.abspath(s))
+
 def same_file(a, b):
-    if a == b:
+    if a == b or (os.name == "nt" and win_key(a) == win_key(b)):
         return True
     try:
         return a.is_file() and b.is_file() and os.path.samefile(a, b)

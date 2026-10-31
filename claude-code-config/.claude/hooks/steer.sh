@@ -11,7 +11,7 @@ if [ -s "$f" ]; then
     exit 0
   fi
   note=$(cat "$f")
-  reason=$("$CWC_SELECTED_PYTHON" -c 'import json,sys; print(json.dumps("OPERATOR STEERING: "+sys.argv[1]+"\\n\\nPause, incorporate this guidance, then continue."))' "$note")
+  reason=$("$CWC_SELECTED_PYTHON" -c 'import json,sys; print(json.dumps("OPERATOR STEERING: "+sys.argv[1]+"\n\nPause, incorporate this guidance, then continue."))' "$note")
   if [ $? -ne 0 ] || [ -z "$reason" ]; then
     printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Steering helper failed; STEER.md preserved"}}'
     exit 0

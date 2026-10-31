@@ -1,41 +1,45 @@
-# FireXCore fork — evidence gate hardening
+# FireXCore fork: hook hardening after Windows QA
 
-Derived from Anthropic's Apache-2.0 educational example. Keep upstream LICENSE
-and copyright notices. This is **not** a hardened sandbox or a security boundary.
+Derived from Anthropic's Apache-2.0 educational example. Keep the
+upstream LICENSE and attribution. **Not a security boundary.**
 
-## Improvements
-- Evidence-read accounting is registered under PostToolUse(Read) rather than
-  PreToolUse(Read), so an attempted/failed Read cannot unlock a result edit.
-- A recorded evidence path must be a qualifying, existing file with the same
-  SHA-256 digest, read in the same Claude Code session.
-- Gate responses use documented hookSpecificOutput / permissionDecision=deny.
-- No Stop auto-commit hook is registered by default. The retained checkpoint
-  script requires CWC_AUTO_COMMIT_ON_STOP=1 and explicit registration.
-- Mock-event regression tests cover hook registration, isolation, integrity,
-  malformed inputs, kill switch and operator steering.
+## Corrected behavior
+- Successful PostToolUse(Read) only; failed or attempted reads do not unlock a write.
+- SHA-256, session-scoped evidence records within local screenshots/ or evidence/.
+- SQLite BEGIN IMMEDIATE serializes evidence consumption across sessions.
+- One Read permits at most one Write/Edit to the configured results file.
+- Aliases/hardlinks to an existing results file are checked via samefile.
+- Evidence expires after 900 seconds by default (CWC_EVIDENCE_TTL_SECONDS).
+- Probe an actually working Python 3.9+ interpreter; Windows Store stubs fail.
+- Steering notes are not removed when the Python runtime is unavailable.
+- Stop auto-commit is disabled by default. No Stop hook is registered.
 
-## Known limits
-- An agent with Bash access can bypass Write/Edit hooks, alter audit logs, or
-  edit result files directly. Hashing does not make the log tamper-proof.
-- The shared JSONL audit file has no interprocess locking; simultaneous sessions
-  can race when consuming entries. Do not use this as a concurrent trust store.
-- Any qualifying evidence can unlock any result row. Test-to-proof binding and
-  independent inspection are still required.
-- Require Bash, Python 3, and appropriate executable permissions. On Windows
-  use Git Bash or replace shell hooks with native Python command hooks.
-- Tests mock hook payloads. Live Claude Code integration and real browser
-  evaluation are **not** demonstrated by these tests.
-- Keep project-specific tenant data, credentials, screenshots, and private
-  configuration out of public forks.
+## Windows: verified launcher required for safe startup
+1. Copy claude-code-config/.claude to a *disposable project* root.
+2. Open PowerShell in that project root.
+3. Run the absolute path to scripts/launch-claude-verified.ps1
+   located in this fork (PowerShell call operator &).
+4. The launcher must print CWC preflight PASS. It sets
+   CLAUDE_CODE_GIT_BASH_PATH and CWC_PYTHON_BIN for the child process.
+5. Do not assume raw 'claude' starts the Bash hooks on Windows.
 
-## Verification
-Run from repository root:
-\`\`\`bash
-python3 -m unittest discover -s tests -v
-\`\`\`
+## Remaining risks: NOT FIXED by these hooks
+- An agent can write its own screenshot/log and read it; this is NOT proof.
+- The agent can forge/alter its local SQLite audit database or invoke shell
+  commands to edit test-results.json without passing Write/Edit hooks.
+- SQLite prevents the observed double-spend race but provides no evidence
+  authenticity, tamper-proofing, or authorization boundary.
+- A trusted *external* evaluator must inspect actual browser/API results
+  and determine PASS/FAIL outside the builder's writable workspace.
+- Live Windows retesting of this revision is pending. CI uses mock events.
+- Do not deploy these examples as security isolation for RMS or tenants.
 
-Upstream PR #3 by @reginaldalfret independently addresses the older PreToolUse
-decision response schema; this fork preserves credit and does not claim to
-have originated that fix. The separate Read lifecycle bug is documented
-independently. Anthropic states that its demonstration repository is
-unmaintained and not accepting contributions.
+## Tests
+Run: python -m unittest discover -s tests -v
+The old JSONL audit log (.claude/.evidence-reads) is no longer used.
+The SQLite file is .claude/.evidence-reads.sqlite3 unless CWC_AUDIT_DB is set.
+
+## Upstream attribution
+The PreToolUse schema change overlaps upstream PR #3 by @reginaldalfret.
+The PostToolUse(Read) lifecycle issue is distinct. Anthropic identifies the
+original demo as unmaintained and not accepting contributions.

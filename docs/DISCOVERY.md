@@ -37,3 +37,7 @@ FireXCore/cwc-long-running-agents is an experimental fork with reproducible test
 3. Publish the short technical summary in communities where Claude Code hooks are relevant, following each community's promotion rules.
 4. Share new concrete findings, reproducible tests or releases; do not repeatedly repost the same link.
 5. Review GitHub **Insights → Traffic** and Stars/Issues over a 14-day window, rather than manufacturing popularity metrics.
+
+## Case study
+
+Share the [Windows fail-open technical case study](WINDOWS-HOOK-CASE-STUDY.md) when the audience wants a reproducible incident rather than a generic project announcement. Copy-ready variants are in [SHARE-KIT.md](SHARE-KIT.md). Neither document represents an external post or an actual GitHub release.

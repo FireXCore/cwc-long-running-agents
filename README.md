@@ -16,6 +16,8 @@ The original Anthropic demo is a useful educational starting point, but its prev
 | Git Bash/Windows runtime ambiguity | PowerShell preflight launcher and Windows-specific tests |
 | Limited test matrix | Windows and Ubuntu CI across Python 3.9 and 3.12 |
 
+**Read the engineering incident:** [Why a registered Claude Code hook allowed a Write on Windows—and how we reproduced and fixed it](docs/WINDOWS-HOOK-CASE-STUDY.md). A short, inspectable failure analysis with the actual scope and limitations.
+
 **Try the behavior without installing Claude Code:** run `python examples/demo_evidence_gate.py`. It uses a disposable folder to demonstrate **deny → record Read → allow once → deny again**. This is a local simulation, **not** verification that a real Claude session or an application test passed.
 
 **Start here:** [2-minute demo](docs/DEMO.md) · [Windows setup](#windows-quick-start-isolated-example) · [Known bypasses](#threat-model-and-known-bypasses) · [Contributing](CONTRIBUTING.md) · [Release notes draft](docs/RELEASE-NOTES-v0.1.0-firexcore.md)

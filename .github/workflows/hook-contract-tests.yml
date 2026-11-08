@@ -42,3 +42,6 @@ jobs:
       - name: Hook regression suite
         shell: bash
         run: python -m unittest discover -s tests -v
+      - name: Verify quick educational demo
+        shell: bash
+        run: python examples/demo_evidence_gate.py

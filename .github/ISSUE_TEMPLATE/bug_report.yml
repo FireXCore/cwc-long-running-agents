@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a reproducible bug in the FireXCore educational hook examples
+title: "[Bug]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This fork is advisory, not a security boundary. Use a disposable fixture.
+        Never upload credentials, proprietary code, or tenant/customer data.
+  - type: input
+    id: version
+    attributes:
+      label: Claude Code version
+      description: Exact value from `claude --version`; write "not applicable" for mocked tests
+      placeholder: "2.1.312"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system, shell and Python version
+      placeholder: "Windows 10 / PowerShell 5.1 / Git Bash / Python 3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Minimal reproduction steps
+      description: Use a disposable workspace; provide actual tool event sequence
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Actual behavior and evidence
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: test_type
+    attributes:
+      label: Evidence type
+      options:
+        - Live Claude Code tool transcript
+        - Direct hook invocation only
+        - Mocked unit test
+        - Documentation only
+    validations:
+      required: true

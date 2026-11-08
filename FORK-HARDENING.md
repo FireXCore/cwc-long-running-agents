@@ -10,6 +10,7 @@ upstream LICENSE and attribution. **Not a security boundary.**
 - One Read permits at most one Write/Edit to the configured results file.
 - Aliases/hardlinks to an existing results file are checked via samefile.
 - Evidence expires after 900 seconds by default (CWC_EVIDENCE_TTL_SECONDS).
+  Expired rows are pruned during subsequent recorded Reads to avoid unbounded stale-row accumulation.
 - Probe an actually working Python 3.9+ interpreter; Windows Store stubs fail.
 - Steering notes are not removed when the Python runtime is unavailable.
 - Stop auto-commit is disabled by default. No Stop hook is registered.

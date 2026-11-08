@@ -229,6 +229,15 @@ class HookGateTests(unittest.TestCase):
             db.execute("UPDATE reads SET observed=1")
         self.denied(self.hook("verify-gate.sh"))
 
+    def test_expired_observations_are_pruned_on_next_read(self):
+        self.read(session="first")
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.execute("UPDATE reads SET observed=1")
+        self.read(session="second")
+        with closing(sqlite3.connect(self.db)) as db:
+            records = db.execute("SELECT session FROM reads").fetchall()
+        self.assertEqual(records, [("second",)])
+
     def test_ttl_invalid_fails_closed(self):
         self.read()
         env = {**self.env, "CWC_EVIDENCE_TTL_SECONDS": "0"}

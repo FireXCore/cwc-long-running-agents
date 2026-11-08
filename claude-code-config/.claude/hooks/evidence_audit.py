@@ -86,8 +86,11 @@ def record(e):
         c = db(cwd)
         try:
             c.execute("BEGIN IMMEDIATE")
+            now = time.time()
+            # Invalid/expired observations must not accumulate across unattended runs.
+            c.execute("DELETE FROM reads WHERE observed < ?", (now - ttl(),))
             c.execute("INSERT INTO reads(session,path,sha,observed) VALUES(?,?,?,?)",
-                      (session, str(path), digest, time.time()))
+                      (session, str(path), digest, now))
             c.commit()
         finally:
             c.close()

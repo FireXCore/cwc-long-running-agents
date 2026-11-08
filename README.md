@@ -105,6 +105,7 @@ Bug reports with minimal reproduction steps and confirmed tool/OS versions are w
 - [FireXCore hardening notes](FORK-HARDENING.md)
 - [Windows live acceptance procedure](scripts/WINDOWS-LIVE-QA.md)
 - [Release readiness checklist](docs/RELEASE-CHECKLIST.md)
+- [Repository discoverability metadata and launch copy](docs/DISCOVERY.md)
 - [Original Anthropic README, preserved](UPSTREAM-README.md)
 - [Upstream Anthropic repository](https://github.com/anthropics/cwc-long-running-agents)
 - [Historical FireXCore PR #1](https://github.com/FireXCore/cwc-long-running-agents/pull/1)

@@ -1,29 +1,37 @@
 name: Hook contract tests
+
 on:
   push:
-    branches: [fix/evidence-gates-hardening]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   hook-tests:
+    name: Hook tests (${{ matrix.os }}, Python ${{ matrix.python }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        python: ['3.9', '3.12']
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
-      - name: Shell syntax
+          python-version: ${{ matrix.python }}
+      - name: Check Bash syntax
         shell: bash
         run: bash -n claude-code-config/.claude/hooks/*.sh
-      - name: Parse Windows PowerShell launcher
+      - name: Parse Windows PowerShell 5.1 launcher
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: powershell
         run: |
           $tokens = $null
           $parseErrors = $null

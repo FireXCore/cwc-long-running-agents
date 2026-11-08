@@ -10,3 +10,6 @@ screenshots/
 .claude/.evidence-reads.sqlite3*
 **/.claude/.evidence-reads.sqlite3*
 evidence/
+
+# Never publish personal Claude Code project overrides.
+**/.claude/settings.local.json

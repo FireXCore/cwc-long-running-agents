@@ -10,6 +10,7 @@ upstream LICENSE and attribution. **Not a security boundary.**
 - One Read permits at most one Write/Edit to the configured results file.
 - Aliases/hardlinks to an existing results file are checked via samefile.
 - Evidence expires after 900 seconds by default (CWC_EVIDENCE_TTL_SECONDS).
+  Expired rows are pruned during subsequent recorded Reads to avoid unbounded stale-row accumulation.
 - Probe an actually working Python 3.9+ interpreter; Windows Store stubs fail.
 - Steering notes are not removed when the Python runtime is unavailable.
 - Stop auto-commit is disabled by default. No Stop hook is registered.
@@ -49,10 +50,13 @@ upstream LICENSE and attribution. **Not a security boundary.**
   `shell`, so older builds are unverified.
 - Windows PowerShell 5.1 strips embedded double quotes from arguments the
   launcher forwards to `claude`. Pass prompts on stdin, not as arguments.
-- The launcher checks only the project's `.claude/settings*.json`. It
-  cannot detect hooks disabled by forwarded `--settings`/`--setting-sources`,
-  user or managed settings, or `CLAUDE_CONFIG_DIR`. It also does not check
-  what the hook commands actually run.
+- The verified launcher now refuses `--settings`, `--setting-sources`
+  and nonempty `CLAUDE_CONFIG_DIR`, since these could change the settings
+  sources without revalidating hooks. This is a guard against accidental
+  misconfiguration, not tamper-proof enforcement.
+- User or managed settings, dynamic configuration changes and the actual
+  execution of hook commands are not independently certified by the launcher.
+  The local agent can still modify its writable project.
 - With the results file absent, Win32 aliases (trailing dot/space, `\\?\`,
   `::$DATA`) are now gated. Other spellings that only the OS resolves (for
   example admin shares) are caught only once the file exists.

@@ -9,6 +9,16 @@ function Fail([string]$Message) {
   [Console]::Error.WriteLine("CWC preflight: $Message")
   exit 2
 }
+# Configuration sources supplied at launch can override the project hooks that
+# were just preflighted. Reject them in this opt-in verified launcher.
+if ($env:CLAUDE_CONFIG_DIR) {
+  Fail 'CLAUDE_CONFIG_DIR is set; this launcher cannot validate that settings source.'
+}
+foreach ($argument in $ClaudeArgs) {
+  if ("$argument" -match '^--(settings|setting-sources)(=|$)') {
+    Fail "Do not override project hook settings through $argument in verified mode."
+  }
+}
 if (-not (Test-Path -LiteralPath '.claude/settings.json' -PathType Leaf)) {
   Fail 'No .claude/settings.json in the working directory.'
 }

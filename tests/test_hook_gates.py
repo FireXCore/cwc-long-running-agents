@@ -93,7 +93,7 @@ class HookGateTests(unittest.TestCase):
         self.assertTrue(every)
         self.assertTrue(all(h.get("shell") == "bash" for h in every))
 
-    def launcher(self, version="2.1.312 (Claude Code)", settings=None, args=()):
+    def launcher(self, version="2.1.312 (Claude Code)", settings=None, args=(), env_overrides=None):
         fake = self.root / "fakebin"
         fake.mkdir(exist_ok=True)
         shown =version.replace("(", "^(").replace(")", "^)")  # cmd block syntax
@@ -104,6 +104,9 @@ class HookGateTests(unittest.TestCase):
                 settings if settings is not None else SETTINGS.read_text())
         env = {**os.environ, "PATH": str(fake) + os.pathsep + os.environ["PATH"]}
         env.pop("CLAUDE_CODE_GIT_BASH_PATH", None)
+        env.pop("CLAUDE_CONFIG_DIR", None)
+        if env_overrides:
+            env.update(env_overrides)
         # Windows PowerShell 5.1, the default shell, not pwsh.
         return subprocess.run(
             ["powershell.exe", "-NoProfile", "-File", str(LAUNCHER), *args],
@@ -146,6 +149,22 @@ class HookGateTests(unittest.TestCase):
         proc = self.launcher()
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("disableAllHooks", proc.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_rejects_overriding_project_hooks(self):
+        for options in (("--settings", "{}"), ("--settings={}",),
+                        ("--setting-sources", "user"),
+                        ("--setting-sources=user",)):
+            with self.subTest(options=options):
+                proc = self.launcher(args=options)
+                self.assertEqual(proc.returncode, 2, proc.stderr)
+                self.assertIn("override project hook settings", proc.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows launcher")
+    def test_launcher_rejects_custom_config_directory(self):
+        proc = self.launcher(env_overrides={"CLAUDE_CONFIG_DIR": str(self.root)})
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("CLAUDE_CONFIG_DIR", proc.stderr)
 
     def test_no_evidence_denied(self):
         self.denied(self.hook("verify-gate.sh"))

@@ -83,7 +83,7 @@ For trustworthy PASS/FAIL, use a **separate evaluator or CI environment outside 
 - [FireXCore hardening notes](FORK-HARDENING.md)
 - [Windows live acceptance procedure](scripts/WINDOWS-LIVE-QA.md)
 - [Release readiness checklist](docs/RELEASE-CHECKLIST.md)
-- [Original Anthropic README, preserved](docs/UPSTREAM-README.md)
+- [Original Anthropic README, preserved](UPSTREAM-README.md)
 - [Upstream Anthropic repository](https://github.com/anthropics/cwc-long-running-agents)
 - [Historical FireXCore PR #1](https://github.com/FireXCore/cwc-long-running-agents/pull/1)
 - [Upstream related PR #3](https://github.com/anthropics/cwc-long-running-agents/pull/3), authored independently by another contributor

@@ -6,10 +6,10 @@ CI tests are not substitutes. Keep this isolated from RMS and all working repos.
 ## 1. Set up disposable sandbox (PowerShell)
 
 ```powershell
-$root = Join-Path $env:TEMP 'cwc-live-acceptance-v2'
+$root = Join-Path $env:TEMP 'cwc-live-acceptance-current'
 if (Test-Path $root) { throw "Destination already exists: $root. Use a new path; do not overwrite it." }
 New-Item -ItemType Directory -Path $root | Out-Null
-git clone --branch fix/evidence-gates-hardening --single-branch https://github.com/FireXCore/cwc-long-running-agents.git "$root\repo"
+git clone --branch main --single-branch https://github.com/FireXCore/cwc-long-running-agents.git "$root\repo"
 if ($LASTEXITCODE -ne 0) { throw "Clone failed" }
 New-Item -ItemType Directory -Path "$root\fixture\evidence" -Force | Out-Null
 Copy-Item "$root\repo\claude-code-config\.claude" "$root\fixture\.claude" -Recurse
@@ -78,9 +78,9 @@ Write/Edit gate. Only an **external** evaluator can certify test results.
 ## Report
 
 Save local outputs in the disposable folder:
-`evidence/REPORT-v2.md`, with per-case VERIFIED/FAILED/INCONCLUSIVE,
+`evidence/REPORT-current.md`, with per-case VERIFIED/FAILED/INCONCLUSIVE,
 Claude version, Git Bash path, real Python path, exact hook stderr,
 and actual on-disk before/after state. Remove any accidentally created
 `AGENT_STOP` in the disposable folder after testing.
 
-Do **not** merge PR #1 or notify Anthropic until live acceptance passes.
+PR #1 was merged on 2026-10-31 and is historical. For any future changes, review their own PR and test evidence before merging. Do not submit a duplicate contribution to Anthropic.

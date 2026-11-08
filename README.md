@@ -4,6 +4,22 @@
 
 [![Hook contract tests](https://github.com/FireXCore/cwc-long-running-agents/actions/workflows/hook-contract-tests.yml/badge.svg?branch=main)](https://github.com/FireXCore/cwc-long-running-agents/actions/workflows/hook-contract-tests.yml)
 
+## Why this fork exists
+
+The original Anthropic demo is a useful educational starting point, but its previous hook format and Windows execution path could silently bypass intended controls. **FireXCore documents and tests those failure modes** and adds a more observable, session-aware example. It is a maintained *fork experiment*, not an Anthropic product or a production security tool.
+
+| In the original demo | In this FireXCore fork |
+| --- | --- |
+| Deprecated `PreToolUse` decision JSON | Updated hook response schema and fail-closed startup configuration |
+| Evidence recorded before a successful file read | Records only `PostToolUse(Read)` events |
+| Simple mutable text log | SHA-256 + session ID + expiry + SQLite transaction |
+| Git Bash/Windows runtime ambiguity | PowerShell preflight launcher and Windows-specific tests |
+| Limited test matrix | Windows and Ubuntu CI across Python 3.9 and 3.12 |
+
+**Try the behavior without installing Claude Code:** run `python examples/demo_evidence_gate.py`. It uses a disposable folder to demonstrate **deny → record Read → allow once → deny again**. This is a local simulation, **not** verification that a real Claude session or an application test passed.
+
+**Start here:** [2-minute demo](docs/DEMO.md) · [Windows setup](#windows-quick-start-isolated-example) · [Known bypasses](#threat-model-and-known-bypasses) · [Contributing](CONTRIBUTING.md) · [Release notes draft](docs/RELEASE-NOTES-v0.1.0-firexcore.md)
+
 ## What is included
 
 | Component | Behavior |
@@ -77,6 +93,12 @@ See [Windows live QA instructions](scripts/WINDOWS-LIVE-QA.md) and [security/imp
 - Launcher checks are best-effort operational preflight; other Claude Code settings sources can change behavior.
 
 For trustworthy PASS/FAIL, use a **separate evaluator or CI environment outside the builder's writable workspace**, with independently obtained browser/API evidence. Never copy these hooks into RMS as a security boundary.
+
+## Use cases and participation
+
+This fork is useful for **Claude Code hook authors**, maintainers of **long-running AI coding agents**, and developers debugging **Windows Git Bash execution** or **session-scoped test evidence**. It offers examples and regression tests, not automatic end-to-end agent verification.
+
+Bug reports with minimal reproduction steps and confirmed tool/OS versions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and the [live QA checklist](scripts/WINDOWS-LIVE-QA.md). The original Anthropic upstream README is preserved for comparison.
 
 ## Documentation, history and attribution
 
